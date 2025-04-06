@@ -1,175 +1,297 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { BookOption, BookSize, OptionCardProps, OptionSectionProps, PriceFactors } from '../types/types';
+import OptionCard from './OptionCard';
+import OptionSection from './OptionSection';
 
-const OptionSection: React.FC<{
-  title: string;
-  children: React.ReactNode;
-}> = ({ title, children }) => {
-  return (
-    <div className="mb-8">
-      <h3 className="text-lg font-medium text-lulu-blue mb-4">{title}</h3>
-      {children}
-    </div>
-  );
+const BOOK_SIZES: BookSize[] = [
+  { id: 'us-letter', name: 'US Letter (8.5 x 11 in)', dimensions: '8.5 x 11 in' },
+  { id: 'us-trade', name: 'US Trade (6 x 9 in)', dimensions: '6 x 9 in' },
+  { id: 'pocket', name: 'Pocket (4.25 x 6.875 in)', dimensions: '4.25 x 6.875 in' },
+  { id: 'a4', name: 'A4 (8.27 x 11.69 in)', dimensions: '8.27 x 11.69 in' },
+  { id: 'a5', name: 'A5 (5.83 x 8.27 in)', dimensions: '5.83 x 8.27 in' },
+  { id: 'crown-quarto', name: 'Crown Quarto (7.44 x 9.68 in)', dimensions: '7.44 x 9.68 in' },
+  { id: 'royal', name: 'Royal (6.14 x 9.21 in)', dimensions: '6.14 x 9.21 in' },
+  { id: 'square', name: 'Square (8.5 x 8.5 in)', dimensions: '8.5 x 8.5 in' },
+  { id: 'landscape', name: 'Landscape (11 x 8.5 in)', dimensions: '11 x 8.5 in' },
+  { id: 'executive', name: 'Executive (7 x 10 in)', dimensions: '7 x 10 in' },
+];
+
+const BINDING_OPTIONS: Record<string, BookOption[]> = {
+  paperback: [
+    {
+      id: 'perfect-bound',
+      title: 'Perfect Bound',
+      imageSrc: 'https://assets.lulu.com/media/pricing-calculator/ProductOption/Book/lulu-book-binding-type-PB-1x.jpg',
+    },
+    {
+      id: 'coil-bound',
+      title: 'Coil Bound',
+      imageSrc: 'https://assets.lulu.com/media/pricing-calculator/ProductOption/Book/lulu-book-binding-type-CO-1x.jpg',
+    },
+    {
+      id: 'saddle-stitch',
+      title: 'Saddle Stitch',
+      imageSrc: 'https://assets.lulu.com/media/pricing-calculator/ProductOption/Book/lulu-book-binding-type-SS-1x.jpg',
+    },
+  ],
+  hardcover: [
+    {
+      id: 'case-wrap',
+      title: 'Case Wrap',
+      imageSrc: 'https://assets.lulu.com/media/pricing-calculator/ProductOption/Book/lulu-book-binding-type-CW-1x.jpg',
+    },
+    {
+      id: 'linen-wrap',
+      title: 'Linen Wrap',
+      imageSrc: 'https://assets.lulu.com/media/pricing-calculator/ProductOption/Book/lulu-book-binding-type-LW-1x.jpg',
+      subtitle: 'with Dust Jacket',
+    },
+  ],
 };
 
-const OptionCard: React.FC<{
-  title: string;
-  imageSrc: string;
-  isSelected?: boolean;
-  onClick: () => void;
-  subtitle?: string;
-  showSelectedIndicator?: boolean;
-}> = ({ title, imageSrc, isSelected = false, onClick, subtitle, showSelectedIndicator = true }) => {
-  return (
-    <div
-      className={`border rounded-md overflow-hidden cursor-pointer transition-colors ${
-        isSelected ? 'border-lulu-light-blue ring-1 ring-lulu-light-blue' : 'border-gray-200'
-      }`}
-      onClick={onClick}
-    >
-      <div className="relative">
-        <img src={imageSrc} alt={title} className="w-full h-32 object-cover" />
-        {isSelected && showSelectedIndicator && (
-          <div className="absolute top-2 left-2">
-            <div className="flex items-center justify-center w-5 h-5 bg-lulu-light-blue rounded-full">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-white" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-              </svg>
-            </div>
-          </div>
-        )}
-      </div>
-      <div className="flex items-center p-3">
-        <div className="relative flex items-center justify-center w-4 h-4 border border-gray-300 rounded-full">
-          {isSelected && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="w-2 h-2 bg-lulu-light-blue rounded-full"></div>
-            </div>
-          )}
-        </div>
-        <span className="ml-2 text-sm font-medium text-lulu-blue">{title}</span>
-      </div>
-      {subtitle && (
-        <div className="px-3 pb-2 -mt-2 text-xs text-gray-500">{subtitle}</div>
-      )}
-    </div>
-  );
+const INTERIOR_COLOR_OPTIONS: BookOption[] = [
+  {
+    id: 'standard-bw',
+    title: 'Standard Black & White',
+    imageSrc: 'https://assets.lulu.com/media/pricing-calculator/ProductOption/Book/lulu-book-interior-color-BWSTD-1x.jpg',
+  },
+  {
+    id: 'premium-bw',
+    title: 'Premium Black & White',
+    imageSrc: 'https://assets.lulu.com/media/pricing-calculator/ProductOption/Book/lulu-book-interior-color-BWPRE-1x.jpg',
+  },
+  {
+    id: 'standard-color',
+    title: 'Standard Color',
+    imageSrc: 'https://assets.lulu.com/media/pricing-calculator/ProductOption/Book/lulu-book-interior-color-FCSTD-1x.jpg',
+  },
+  {
+    id: 'premium-color',
+    title: 'Premium Color',
+    imageSrc: 'https://assets.lulu.com/media/pricing-calculator/ProductOption/Book/lulu-book-interior-color-FCPRE-1x.jpg',
+  },
+];
+
+const PAPER_TYPE_OPTIONS: BookOption[] = [
+  {
+    id: '60-cream-uncoated',
+    title: '60# Cream — Uncoated',
+    imageSrc: 'https://assets.lulu.com/media/pricing-calculator/ProductOption/Book/lulu-book-paper-type-060UC-1x.jpg',
+  },
+  {
+    id: '60-white-uncoated',
+    title: '60# White — Uncoated',
+    imageSrc: 'https://assets.lulu.com/media/pricing-calculator/ProductOption/Book/lulu-book-paper-type-060UW-1x.jpg',
+  },
+  {
+    id: '80-white-coated',
+    title: '80# White — Coated',
+    imageSrc: 'https://assets.lulu.com/media/pricing-calculator/ProductOption/Book/lulu-book-paper-type-080CW-1x.jpg',
+  },
+];
+
+const COVER_FINISH_OPTIONS: BookOption[] = [
+  {
+    id: 'glossy',
+    title: 'Glossy',
+    imageSrc: 'https://assets.lulu.com/media/pricing-calculator/ProductOption/Book/lulu-book-cover-finish-G-1x.jpg',
+  },
+  {
+    id: 'matte',
+    title: 'Matte',
+    imageSrc: 'https://assets.lulu.com/media/pricing-calculator/ProductOption/Book/lulu-book-cover-finish-M-1x.jpg',
+  },
+];
+
+// Page count range by binding type
+const PAGE_COUNT_RANGES: Record<string, string> = {
+  'saddle-stitch': '4-80',
+  'coil-bound': '2-470',
+  'perfect-bound': '40-800',
+  'case-wrap': '24-800',
+  'linen-wrap': '24-800',
+  'default': '2-800',
+};
+
+// Price calculation factors
+const PRICING_FACTORS: PriceFactors = {
+  basePrice: 5.00,
+  sizeFactors: {
+    'us-letter': 1.2,
+    'us-trade': 1.0,
+    'pocket': 0.8,
+    'a4': 1.2,
+    'a5': 1.0,
+    'crown-quarto': 1.1,
+    'royal': 1.0,
+    'square': 1.1,
+    'landscape': 1.2,
+    'executive': 1.1
+  },
+  bindingFactors: {
+    'perfect-bound': 1.0,
+    'coil-bound': 1.2,
+    'saddle-stitch': 0.8,
+    'case-wrap': 2.0,
+    'linen-wrap': 2.2
+  },
+  colorFactors: {
+    'standard-bw': 0.7,
+    'premium-bw': 0.8,
+    'standard-color': 1.5,
+    'premium-color': 2.0
+  },
+  paperFactors: {
+    '60-cream-uncoated': 0.9,
+    '60-white-uncoated': 1.0,
+    '80-white-coated': 1.2
+  },
+  coverFactors: {
+    'glossy': 1.0,
+    'matte': 1.1
+  },
+  perPagePrices: {
+    'standard-bw': 0.02,
+    'premium-bw': 0.025,
+    'standard-color': 0.05,
+    'premium-color': 0.07
+  }
 };
 
 const PrintBookOptions: React.FC = () => {
   // Main state for book options
-  const [bookSize, setBookSize] = useState('a5');
-  const [pageCount, setPageCount] = useState('10');
-  const [bindingType, setBindingType] = useState('linen-wrap');
-  const [interiorColor, setInteriorColor] = useState('standard-color');
-  const [paperType, setPaperType] = useState('60-white-uncoated');
-  const [coverFinish, setCoverFinish] = useState('glossy');
+  const [bookSize, setBookSize] = useState<string>('a5');
+  const [pageCount, setPageCount] = useState<string>('10');
+  const [bindingType, setBindingType] = useState<string>('linen-wrap');
+  const [interiorColor, setInteriorColor] = useState<string>('standard-color');
+  const [paperType, setPaperType] = useState<string>('60-white-uncoated');
+  const [coverFinish, setCoverFinish] = useState<string>('glossy');
+  const [price, setPrice] = useState<string>('16.17');
 
-  // State for book size dropdown
-  const [isBookSizeOpen, setIsBookSizeOpen] = useState(false);
+  // UI state
+  const [isBookSizeOpen, setIsBookSizeOpen] = useState<boolean>(false);
 
-  // Book size options
-  const bookSizes = [
-    { id: 'us-letter', name: 'US Letter (8.5 x 11 in)', dimensions: '8.5 x 11 in' },
-    { id: 'us-trade', name: 'US Trade (6 x 9 in)', dimensions: '6 x 9 in' },
-    { id: 'pocket', name: 'Pocket (4.25 x 6.875 in)', dimensions: '4.25 x 6.875 in' },
-    { id: 'a4', name: 'A4 (8.27 x 11.69 in)', dimensions: '8.27 x 11.69 in' },
-    { id: 'a5', name: 'A5 (5.83 x 8.27 in)', dimensions: '5.83 x 8.27 in' },
-    { id: 'crown-quarto', name: 'Crown Quarto (7.44 x 9.68 in)', dimensions: '7.44 x 9.68 in' },
-    { id: 'royal', name: 'Royal (6.14 x 9.21 in)', dimensions: '6.14 x 9.21 in' },
-    { id: 'square', name: 'Square (8.5 x 8.5 in)', dimensions: '8.5 x 8.5 in' },
-    { id: 'landscape', name: 'Landscape (11 x 8.5 in)', dimensions: '11 x 8.5 in' },
-    { id: 'executive', name: 'Executive (7 x 10 in)', dimensions: '7 x 10 in' },
-  ];
-
-  // Find selected book size display name
+  // Utility functions
   const getSelectedBookSizeName = (): string => {
-    const selected = bookSizes.find(size => size.id === bookSize);
+    const selected = BOOK_SIZES.find(size => size.id === bookSize);
     return selected ? selected.name : 'Select size';
   };
 
-  // Get display values for the summary panel
-  const getDisplayValue = (key: string): string => {
-    switch (key) {
-      case 'bookSize':
-        if (bookSize === 'us-letter') return 'US-Letter';
-        if (bookSize === 'us-trade') return 'US-Trade';
-        if (bookSize === 'a4') return 'A4';
-        if (bookSize === 'a5') return 'A5';
-        return bookSize || '—';
-      case 'pageCount':
-        return pageCount || '—';
-      case 'bindingType':
-        if (bindingType === 'perfect-bound') return 'Perfect Bound';
-        if (bindingType === 'coil-bound') return 'Coil Bound';
-        if (bindingType === 'saddle-stitch') return 'Saddle Stitch';
-        if (bindingType === 'case-wrap') return 'Case Wrap';
-        if (bindingType === 'linen-wrap') return 'Linen Wrap';
-        return bindingType || '—';
-      case 'interiorColor':
-        if (interiorColor === 'standard-bw') return 'Standard Black & White';
-        if (interiorColor === 'premium-bw') return 'Premium Black & White';
-        if (interiorColor === 'standard-color') return 'Standard-color';
-        if (interiorColor === 'premium-color') return 'Premium Color';
-        return interiorColor || '—';
-      case 'paperType':
-        if (paperType === '60-cream-uncoated') return '60# Cream — Uncoated';
-        if (paperType === '60-white-uncoated') return '60# White — Uncoated';
-        if (paperType === '80-white-coated') return '80# White — Coated';
-        return paperType || '—';
-      case 'coverFinish':
-        if (coverFinish === 'glossy') return 'Glossy';
-        if (coverFinish === 'matte') return 'Matte';
-        return coverFinish || '—';
-      default:
-        return '—';
-    }
-  };
-
-  // Calculate price - fixed for this demo
-  const calculatePrice = (): string => {
-    return "16.17";
-  };
-
-  // Calculate valid page range
   const getPageCountRange = (): string => {
-    // Different bindings have different page limits
-    if (bindingType === 'saddle-stitch') {
-      return '4-80';
-    } else if (bindingType === 'coil-bound') {
-      return '2-470';
-    } else if (bindingType === 'perfect-bound') {
-      return '40-800';
-    } else if (bindingType === 'case-wrap' || bindingType === 'linen-wrap') {
-      return '24-800';
-    }
-    return '2-800';
+    return PAGE_COUNT_RANGES[bindingType] || PAGE_COUNT_RANGES.default;
   };
 
-  // Handle page count change with validation
+  const getDisplayValue = (key: string): string => {
+    const displayMappings: Record<string, Record<string, string>> = {
+      bookSize: {
+        'us-letter': 'US-Letter',
+        'us-trade': 'US-Trade',
+        'a4': 'A4',
+        'a5': 'A5',
+      },
+      bindingType: {
+        'perfect-bound': 'Perfect Bound',
+        'coil-bound': 'Coil Bound',
+        'saddle-stitch': 'Saddle Stitch',
+        'case-wrap': 'Case Wrap',
+        'linen-wrap': 'Linen Wrap',
+      },
+      interiorColor: {
+        'standard-bw': 'Standard Black & White',
+        'premium-bw': 'Premium Black & White',
+        'standard-color': 'Standard-color',
+        'premium-color': 'Premium Color',
+      },
+      paperType: {
+        '60-cream-uncoated': '60# Cream — Uncoated',
+        '60-white-uncoated': '60# White — Uncoated',
+        '80-white-coated': '80# White — Coated',
+      },
+      coverFinish: {
+        'glossy': 'Glossy',
+        'matte': 'Matte',
+      },
+    };
+
+    const value = (() => {
+      switch (key) {
+        case 'bookSize': return bookSize;
+        case 'pageCount': return pageCount;
+        case 'bindingType': return bindingType;
+        case 'interiorColor': return interiorColor;
+        case 'paperType': return paperType;
+        case 'coverFinish': return coverFinish;
+        default: return '';
+      }
+    })();
+
+    return (displayMappings[key] && displayMappings[key][value]) || value || '—';
+  };
+
   const handlePageCountChange = (value: string) => {
     const numValue = parseInt(value, 10);
+    
+    if (isNaN(numValue) && value !== '') {
+      return; // Invalid input, don't update
+    }
 
-    // Only update if it's a valid number
-    if (!isNaN(numValue) && numValue > 0) {
-      const range = getPageCountRange();
-      const [min, max] = range.split('-').map(n => parseInt(n, 10));
-
-      // Clamp between min and max
-      if (numValue < min) {
-        setPageCount(min.toString());
-      } else if (numValue > max) {
-        setPageCount(max.toString());
-      } else {
-        setPageCount(value);
-      }
-    } else if (value === '') {
+    if (value === '') {
       setPageCount('');
+      return;
+    }
+
+    // Clamp between min and max if it's a valid number
+    const range = getPageCountRange();
+    const [min, max] = range.split('-').map(n => parseInt(n, 10));
+
+    if (numValue < min) {
+      setPageCount(min.toString());
+    } else if (numValue > max) {
+      setPageCount(max.toString());
+    } else {
+      setPageCount(value);
     }
   };
 
+  const calculatePrice = (): string => {
+    // Parse page count
+    const pages = parseInt(pageCount, 10);
+    if (isNaN(pages) || pages <= 0) {
+      return "0.00";
+    }
+
+    // Calculate base price with all factors
+    const { basePrice, sizeFactors, bindingFactors, colorFactors, paperFactors, coverFactors, perPagePrices } = PRICING_FACTORS;
+    
+    let totalPrice = basePrice;
+    // Apply size factor
+    totalPrice *= sizeFactors[bookSize] || 1;
+    // Apply binding factor
+    totalPrice *= bindingFactors[bindingType] || 1;
+    // Apply cover finish factor
+    totalPrice *= coverFactors[coverFinish] || 1;
+    // Apply paper type factor
+    totalPrice *= paperFactors[paperType] || 1;
+    
+    // Add per-page costs based on interior color and page count
+    const perPageCost = perPagePrices[interiorColor] || 0.02;
+    totalPrice += perPageCost * pages;
+    
+    // Apply color factor to the overall price
+    totalPrice *= colorFactors[interiorColor] || 1;
+
+    // Round to 2 decimal places and return as string
+    return totalPrice.toFixed(2);
+  };
+
+  // Update price when options change
+  useEffect(() => {
+    const newPrice = calculatePrice();
+    setPrice(newPrice);
+  }, [bookSize, pageCount, bindingType, interiorColor, paperType, coverFinish]);
+
   // Close book size dropdown when clicking outside
-  React.useEffect(() => {
+  useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
       if (!target.closest('#book-size-dropdown') && !target.closest('#book-size-button')) {
@@ -226,7 +348,7 @@ const PrintBookOptions: React.FC = () => {
                       className="absolute z-10 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md overflow-auto"
                     >
                       <ul className="py-1">
-                        {bookSizes.map((size) => (
+                        {BOOK_SIZES.map((size) => (
                           <li
                             key={size.id}
                             className={`px-3 py-2 cursor-pointer hover:bg-gray-100 ${
@@ -281,116 +403,78 @@ const PrintBookOptions: React.FC = () => {
             <div>
               <h4 className="text-sm font-medium text-gray-700 mb-3">Paperback Options</h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-                <OptionCard
-                  title="Perfect Bound"
-                  imageSrc="https://assets.lulu.com/media/pricing-calculator/ProductOption/Book/lulu-book-binding-type-PB-1x.jpg"
-                  isSelected={bindingType === 'perfect-bound'}
-                  onClick={() => setBindingType('perfect-bound')}
-                />
-                <OptionCard
-                  title="Coil Bound"
-                  imageSrc="https://assets.lulu.com/media/pricing-calculator/ProductOption/Book/lulu-book-binding-type-CO-1x.jpg"
-                  isSelected={bindingType === 'coil-bound'}
-                  onClick={() => setBindingType('coil-bound')}
-                />
-                <OptionCard
-                  title="Saddle Stitch"
-                  imageSrc="https://assets.lulu.com/media/pricing-calculator/ProductOption/Book/lulu-book-binding-type-SS-1x.jpg"
-                  isSelected={bindingType === 'saddle-stitch'}
-                  onClick={() => setBindingType('saddle-stitch')}
-                />
+                {BINDING_OPTIONS.paperback.map(option => (
+                  <OptionCard
+                    key={option.id}
+                    title={option.title}
+                    imageSrc={option.imageSrc}
+                    isSelected={bindingType === option.id}
+                    onClick={() => setBindingType(option.id)}
+                    subtitle={option.subtitle}
+                  />
+                ))}
               </div>
             </div>
 
             <div>
               <h4 className="text-sm font-medium text-gray-700 mb-3">Hardcover Options</h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                <OptionCard
-                  title="Case Wrap"
-                  imageSrc="https://assets.lulu.com/media/pricing-calculator/ProductOption/Book/lulu-book-binding-type-CW-1x.jpg"
-                  isSelected={bindingType === 'case-wrap'}
-                  onClick={() => setBindingType('case-wrap')}
-                />
-                <OptionCard
-                  title="Linen Wrap"
-                  imageSrc="https://assets.lulu.com/media/pricing-calculator/ProductOption/Book/lulu-book-binding-type-LW-1x.jpg"
-                  isSelected={bindingType === 'linen-wrap'}
-                  onClick={() => setBindingType('linen-wrap')}
-                  subtitle="with Dust Jacket"
-                />
+                {BINDING_OPTIONS.hardcover.map(option => (
+                  <OptionCard
+                    key={option.id}
+                    title={option.title}
+                    imageSrc={option.imageSrc}
+                    isSelected={bindingType === option.id}
+                    onClick={() => setBindingType(option.id)}
+                    subtitle={option.subtitle}
+                  />
+                ))}
               </div>
             </div>
           </OptionSection>
 
           <OptionSection title="Interior Color">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <OptionCard
-                title="Standard Black & White"
-                imageSrc="https://assets.lulu.com/media/pricing-calculator/ProductOption/Book/lulu-book-interior-color-BWSTD-1x.jpg"
-                isSelected={interiorColor === 'standard-bw'}
-                onClick={() => setInteriorColor('standard-bw')}
-              />
-              <OptionCard
-                title="Premium Black & White"
-                imageSrc="https://assets.lulu.com/media/pricing-calculator/ProductOption/Book/lulu-book-interior-color-BWPRE-1x.jpg"
-                isSelected={interiorColor === 'premium-bw'}
-                onClick={() => setInteriorColor('premium-bw')}
-              />
-              <OptionCard
-                title="Standard Color"
-                imageSrc="https://assets.lulu.com/media/pricing-calculator/ProductOption/Book/lulu-book-interior-color-FCSTD-1x.jpg"
-                isSelected={interiorColor === 'standard-color'}
-                onClick={() => setInteriorColor('standard-color')}
-                showSelectedIndicator={true}
-              />
-              <OptionCard
-                title="Premium Color"
-                imageSrc="https://assets.lulu.com/media/pricing-calculator/ProductOption/Book/lulu-book-interior-color-FCPRE-1x.jpg"
-                isSelected={interiorColor === 'premium-color'}
-                onClick={() => setInteriorColor('premium-color')}
-              />
+              {INTERIOR_COLOR_OPTIONS.map(option => (
+                <OptionCard
+                  key={option.id}
+                  title={option.title}
+                  imageSrc={option.imageSrc}
+                  isSelected={interiorColor === option.id}
+                  onClick={() => setInteriorColor(option.id)}
+                  showSelectedIndicator={true}
+                />
+              ))}
             </div>
           </OptionSection>
 
           <OptionSection title="Paper Type">
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              <OptionCard
-                title="60# Cream — Uncoated"
-                imageSrc="https://assets.lulu.com/media/pricing-calculator/ProductOption/Book/lulu-book-paper-type-060UC-1x.jpg"
-                isSelected={paperType === '60-cream-uncoated'}
-                onClick={() => setPaperType('60-cream-uncoated')}
-              />
-              <OptionCard
-                title="60# White — Uncoated"
-                imageSrc="https://assets.lulu.com/media/pricing-calculator/ProductOption/Book/lulu-book-paper-type-060UW-1x.jpg"
-                isSelected={paperType === '60-white-uncoated'}
-                onClick={() => setPaperType('60-white-uncoated')}
-                showSelectedIndicator={true}
-              />
-              <OptionCard
-                title="80# White — Coated"
-                imageSrc="https://assets.lulu.com/media/pricing-calculator/ProductOption/Book/lulu-book-paper-type-080CW-1x.jpg"
-                isSelected={paperType === '80-white-coated'}
-                onClick={() => setPaperType('80-white-coated')}
-              />
+              {PAPER_TYPE_OPTIONS.map(option => (
+                <OptionCard
+                  key={option.id}
+                  title={option.title}
+                  imageSrc={option.imageSrc}
+                  isSelected={paperType === option.id}
+                  onClick={() => setPaperType(option.id)}
+                  showSelectedIndicator={true}
+                />
+              ))}
             </div>
           </OptionSection>
 
           <OptionSection title="Cover Finish">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <OptionCard
-                title="Glossy"
-                imageSrc="https://assets.lulu.com/media/pricing-calculator/ProductOption/Book/lulu-book-cover-finish-G-1x.jpg"
-                isSelected={coverFinish === 'glossy'}
-                onClick={() => setCoverFinish('glossy')}
-                showSelectedIndicator={true}
-              />
-              <OptionCard
-                title="Matte"
-                imageSrc="https://assets.lulu.com/media/pricing-calculator/ProductOption/Book/lulu-book-cover-finish-M-1x.jpg"
-                isSelected={coverFinish === 'matte'}
-                onClick={() => setCoverFinish('matte')}
-              />
+              {COVER_FINISH_OPTIONS.map(option => (
+                <OptionCard
+                  key={option.id}
+                  title={option.title}
+                  imageSrc={option.imageSrc}
+                  isSelected={coverFinish === option.id}
+                  onClick={() => setCoverFinish(option.id)}
+                  showSelectedIndicator={true}
+                />
+              ))}
             </div>
           </OptionSection>
 
@@ -437,27 +521,27 @@ const PrintBookOptions: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-y-3 text-sm">
                 <div className="text-gray-600">Book Size</div>
-                <div className="text-lulu-blue font-medium">A5</div>
+                <div className="text-lulu-blue font-medium">{getDisplayValue('bookSize')}</div>
 
                 <div className="text-gray-600">Page Count</div>
-                <div className="text-lulu-blue font-medium">10</div>
+                <div className="text-lulu-blue font-medium">{getDisplayValue('pageCount')}</div>
 
                 <div className="text-gray-600">Binding Type</div>
-                <div className="text-lulu-blue font-medium">Linen Wrap</div>
+                <div className="text-lulu-blue font-medium">{getDisplayValue('bindingType')}</div>
 
                 <div className="text-gray-600">Interior Color</div>
-                <div className="text-lulu-blue font-medium">Standard-color</div>
+                <div className="text-lulu-blue font-medium">{getDisplayValue('interiorColor')}</div>
 
                 <div className="text-gray-600">Paper Type</div>
-                <div className="text-lulu-blue font-medium">60# White — Uncoated</div>
+                <div className="text-lulu-blue font-medium">{getDisplayValue('paperType')}</div>
 
                 <div className="text-gray-600">Cover Finish</div>
-                <div className="text-lulu-blue font-medium">Glossy</div>
+                <div className="text-lulu-blue font-medium">{getDisplayValue('coverFinish')}</div>
               </div>
             </div>
 
             <div className="text-center text-xl font-bold text-lulu-blue mb-4">
-              16.17 USD <span className="text-sm font-normal">per Print Book</span>
+              {price} USD <span className="text-sm font-normal">per Print Book</span>
             </div>
 
             <button
