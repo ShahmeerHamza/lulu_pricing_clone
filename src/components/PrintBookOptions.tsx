@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { BookOption, BookSize, OptionCardProps, OptionSectionProps, PriceFactors } from '../types/types';
 import OptionCard from './OptionCard';
 import OptionSection from './OptionSection';
+import QuantityShippingDropdown from './QuantityShippingDropdown';
+import RevenueEstimatesContent from './RevenueEstimatesContent';
 
 const BOOK_SIZES: BookSize[] = [
   { id: 'us-letter', name: 'US Letter (8.5 x 11 in)', dimensions: '8.5 x 11 in' },
@@ -158,18 +160,65 @@ const PRICING_FACTORS: PriceFactors = {
   }
 };
 
+const COMPATIBILITY_RULES = {
+  // Define which binding types are compatible with each book size
+  bindingTypeBySize: {
+    'us-letter': ['perfect-bound', 'coil-bound', 'saddle-stitch', 'case-wrap'],
+    'us-trade': ['perfect-bound', 'coil-bound', 'saddle-stitch', 'case-wrap', 'linen-wrap'],
+    'pocket': ['perfect-bound', 'saddle-stitch'],
+    'a4': ['perfect-bound', 'coil-bound', 'saddle-stitch', 'case-wrap'],
+    'a5': ['perfect-bound', 'saddle-stitch', 'case-wrap', 'linen-wrap'],
+    'crown-quarto': ['perfect-bound', 'case-wrap', 'linen-wrap'],
+    'royal': ['perfect-bound', 'case-wrap', 'linen-wrap'],
+    'square': ['perfect-bound', 'coil-bound', 'case-wrap'],
+    'landscape': ['perfect-bound', 'coil-bound'],
+    'executive': ['perfect-bound', 'coil-bound', 'case-wrap']
+  },
+  
+  // Define which interior color options are compatible with each binding type
+  interiorColorByBinding: {
+    'perfect-bound': ['standard-bw', 'premium-bw', 'standard-color', 'premium-color'],
+    'coil-bound': ['standard-bw', 'premium-bw', 'standard-color'],
+    'saddle-stitch': ['standard-bw', 'standard-color'],
+    'case-wrap': ['standard-bw', 'premium-bw', 'standard-color', 'premium-color'],
+    'linen-wrap': ['standard-bw', 'premium-bw', 'standard-color', 'premium-color']
+  },
+  
+  // Define which paper types are compatible with each interior color
+  paperTypeByInteriorColor: {
+    'standard-bw': ['60-cream-uncoated', '60-white-uncoated'],
+    'premium-bw': ['60-cream-uncoated', '60-white-uncoated'],
+    'standard-color': ['60-white-uncoated', '80-white-coated'],
+    'premium-color': ['80-white-coated']
+  },
+  
+  // Define which cover finishes are compatible with each binding type
+  coverFinishByBinding: {
+    'perfect-bound': ['glossy', 'matte'],
+    'coil-bound': ['glossy'],
+    'saddle-stitch': ['glossy'],
+    'case-wrap': ['glossy', 'matte'],
+    'linen-wrap': ['matte']
+  }
+};
+
 const PrintBookOptions: React.FC = () => {
   // Main state for book options
   const [bookSize, setBookSize] = useState<string>('a5');
   const [pageCount, setPageCount] = useState<string>('10');
-  const [bindingType, setBindingType] = useState<string>('linen-wrap');
+  const [bindingType, setBindingType] = useState<string>('perfect-bound');
   const [interiorColor, setInteriorColor] = useState<string>('standard-color');
   const [paperType, setPaperType] = useState<string>('60-white-uncoated');
-  const [coverFinish, setCoverFinish] = useState<string>('glossy');
-  const [price, setPrice] = useState<string>('16.17');
+  const [coverFinish, setCoverFinish] = useState<string>('matte');
+  const [price, setPrice] = useState<string>('0.00');
 
   // UI state
   const [isBookSizeOpen, setIsBookSizeOpen] = useState<boolean>(false);
+  const [isQuantityShippingOpen, setIsQuantityShippingOpen] = useState<boolean>(false);
+  const [isRevenueEstimatesOpen, setIsRevenueEstimatesOpen] = useState<boolean>(false);
+  
+  // Page count validation state
+  const [pageCountError, setPageCountError] = useState<string>('');
 
   // Utility functions
   const getSelectedBookSizeName = (): string => {
@@ -181,76 +230,135 @@ const PrintBookOptions: React.FC = () => {
     return PAGE_COUNT_RANGES[bindingType] || PAGE_COUNT_RANGES.default;
   };
 
-  const getDisplayValue = (key: string): string => {
-    const displayMappings: Record<string, Record<string, string>> = {
-      bookSize: {
-        'us-letter': 'US-Letter',
-        'us-trade': 'US-Trade',
-        'a4': 'A4',
-        'a5': 'A5',
-      },
-      bindingType: {
-        'perfect-bound': 'Perfect Bound',
-        'coil-bound': 'Coil Bound',
-        'saddle-stitch': 'Saddle Stitch',
-        'case-wrap': 'Case Wrap',
-        'linen-wrap': 'Linen Wrap',
-      },
-      interiorColor: {
-        'standard-bw': 'Standard Black & White',
-        'premium-bw': 'Premium Black & White',
-        'standard-color': 'Standard-color',
-        'premium-color': 'Premium Color',
-      },
-      paperType: {
-        '60-cream-uncoated': '60# Cream — Uncoated',
-        '60-white-uncoated': '60# White — Uncoated',
-        '80-white-coated': '80# White — Coated',
-      },
-      coverFinish: {
-        'glossy': 'Glossy',
-        'matte': 'Matte',
-      },
-    };
-
-    const value = (() => {
-      switch (key) {
-        case 'bookSize': return bookSize;
-        case 'pageCount': return pageCount;
-        case 'bindingType': return bindingType;
-        case 'interiorColor': return interiorColor;
-        case 'paperType': return paperType;
-        case 'coverFinish': return coverFinish;
-        default: return '';
-      }
-    })();
-
-    return (displayMappings[key] && displayMappings[key][value]) || value || '—';
+  const getDisplayValue = (optionType: string): string => {
+    switch (optionType) {
+      case 'bookSize':
+        return getSelectedBookSizeName();
+      
+      case 'pageCount':
+        return pageCount;
+      
+      case 'bindingType':
+        const bindingOption = [...BINDING_OPTIONS.paperback, ...BINDING_OPTIONS.hardcover]
+          .find(option => option.id === bindingType);
+        return bindingOption ? bindingOption.title : '';
+      
+      case 'interiorColor':
+        const colorOption = INTERIOR_COLOR_OPTIONS.find(option => option.id === interiorColor);
+        return colorOption ? colorOption.title : '';
+      
+      case 'paperType':
+        const paperOption = PAPER_TYPE_OPTIONS.find(option => option.id === paperType);
+        return paperOption ? paperOption.title : '';
+      
+      case 'coverFinish':
+        const finishOption = COVER_FINISH_OPTIONS.find(option => option.id === coverFinish);
+        return finishOption ? finishOption.title : '';
+      
+      default:
+        return '';
+    }
   };
 
-  const handlePageCountChange = (value: string) => {
-    const numValue = parseInt(value, 10);
+  // Check if an option is compatible with current selections
+  const isOptionCompatible = (
+    optionType: 'bindingType' | 'interiorColor' | 'paperType' | 'coverFinish', 
+    optionId: string
+  ): boolean => {
+    switch (optionType) {
+      case 'bindingType':
+        return COMPATIBILITY_RULES.bindingTypeBySize[bookSize]?.includes(optionId) || false;
+      
+      case 'interiorColor':
+        return COMPATIBILITY_RULES.interiorColorByBinding[bindingType]?.includes(optionId) || false;
+      
+      case 'paperType':
+        return COMPATIBILITY_RULES.paperTypeByInteriorColor[interiorColor]?.includes(optionId) || false;
+      
+      case 'coverFinish':
+        return COMPATIBILITY_RULES.coverFinishByBinding[bindingType]?.includes(optionId) || false;
+      
+      default:
+        return true;
+    }
+  };
+
+  // Reset to valid options when dependencies change
+  useEffect(() => {
+    // If current binding type is not compatible with book size, choose first compatible one
+    if (!isOptionCompatible('bindingType', bindingType)) {
+      const compatibleBindings = COMPATIBILITY_RULES.bindingTypeBySize[bookSize] || [];
+      if (compatibleBindings.length > 0) {
+        setBindingType(compatibleBindings[0]);
+      }
+    }
+  }, [bookSize]);
+
+  useEffect(() => {
+    // If current interior color is not compatible with binding type, choose first compatible one
+    if (!isOptionCompatible('interiorColor', interiorColor)) {
+      const compatibleColors = COMPATIBILITY_RULES.interiorColorByBinding[bindingType] || [];
+      if (compatibleColors.length > 0) {
+        setInteriorColor(compatibleColors[0]);
+      }
+    }
     
+    // If current cover finish is not compatible with binding type, choose first compatible one
+    if (!isOptionCompatible('coverFinish', coverFinish)) {
+      const compatibleFinishes = COMPATIBILITY_RULES.coverFinishByBinding[bindingType] || [];
+      if (compatibleFinishes.length > 0) {
+        setCoverFinish(compatibleFinishes[0]);
+      }
+    }
+    
+    // Validate page count against new binding type
+    validatePageCount(pageCount);
+  }, [bindingType]);
+
+  useEffect(() => {
+    // If current paper type is not compatible with interior color, choose first compatible one
+    if (!isOptionCompatible('paperType', paperType)) {
+      const compatiblePapers = COMPATIBILITY_RULES.paperTypeByInteriorColor[interiorColor] || [];
+      if (compatiblePapers.length > 0) {
+        setPaperType(compatiblePapers[0]);
+      }
+    }
+  }, [interiorColor]);
+
+  // Validate page count against binding type constraints
+  const validatePageCount = (value: string): boolean => {
+    const numValue = parseInt(value, 10);
     if (isNaN(numValue) && value !== '') {
-      return; // Invalid input, don't update
+      setPageCountError('Please enter a valid number');
+      return false;
     }
 
     if (value === '') {
-      setPageCount('');
-      return;
+      setPageCountError('Page count is required');
+      return false;
     }
 
-    // Clamp between min and max if it's a valid number
     const range = getPageCountRange();
     const [min, max] = range.split('-').map(n => parseInt(n, 10));
 
     if (numValue < min) {
-      setPageCount(min.toString());
+      setPageCountError(`Minimum page count is ${min}`);
+      return false;
     } else if (numValue > max) {
-      setPageCount(max.toString());
+      setPageCountError(`Maximum page count is ${max}`);
+      return false;
     } else {
-      setPageCount(value);
+      setPageCountError('');
+      return true;
     }
+  };
+
+  const handlePageCountChange = (value: string) => {
+    // Always update the input value
+    setPageCount(value);
+    
+    // Validate the new value
+    validatePageCount(value);
   };
 
   const calculatePrice = (): string => {
@@ -290,20 +398,33 @@ const PrintBookOptions: React.FC = () => {
     setPrice(newPrice);
   }, [bookSize, pageCount, bindingType, interiorColor, paperType, coverFinish]);
 
-  // Close book size dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-      if (!target.closest('#book-size-dropdown') && !target.closest('#book-size-button')) {
-        setIsBookSizeOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
+  // Render option cards with disabled state
+  const renderOptionCards = (
+    options: BookOption[], 
+    selectedValue: string, 
+    setSelectedValue: (value: string) => void,
+    optionType: 'bindingType' | 'interiorColor' | 'paperType' | 'coverFinish'
+  ) => {
+    return options.map(option => {
+      const isCompatible = isOptionCompatible(optionType, option.id);
+      
+      return (
+        <div key={option.id} className={`${!isCompatible ? 'opacity-50' : ''}`}>
+          <OptionCard
+            title={option.title}
+            imageSrc={option.imageSrc}
+            isSelected={selectedValue === option.id}
+            onClick={() => isCompatible && setSelectedValue(option.id)}
+            subtitle={option.subtitle}
+            showSelectedIndicator={true}
+          />
+          {!isCompatible && (
+            <div className="text-xs text-red-500 mt-1">Not compatible with current selections</div>
+          )}
+        </div>
+      );
+    });
+  };
 
   return (
     <div className="container mx-auto pb-10">
@@ -384,7 +505,7 @@ const PrintBookOptions: React.FC = () => {
                   <input
                     type="number"
                     id="pageCount"
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-lulu-light-blue focus:border-lulu-light-blue"
+                    className={`w-full border ${pageCountError ? 'border-red-500' : 'border-gray-300'} rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-lulu-light-blue focus:border-lulu-light-blue`}
                     placeholder="Page count"
                     value={pageCount}
                     onChange={(e) => handlePageCountChange(e.target.value)}
@@ -395,6 +516,9 @@ const PrintBookOptions: React.FC = () => {
                     MIN-MAX: {getPageCountRange()}
                   </div>
                 </div>
+                {pageCountError && (
+                  <p className="text-red-500 text-xs mt-1">{pageCountError}</p>
+                )}
               </div>
             </div>
           </OptionSection>
@@ -403,97 +527,102 @@ const PrintBookOptions: React.FC = () => {
             <div>
               <h4 className="text-sm font-medium text-gray-700 mb-3">Paperback Options</h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-                {BINDING_OPTIONS.paperback.map(option => (
-                  <OptionCard
-                    key={option.id}
-                    title={option.title}
-                    imageSrc={option.imageSrc}
-                    isSelected={bindingType === option.id}
-                    onClick={() => setBindingType(option.id)}
-                    subtitle={option.subtitle}
-                  />
-                ))}
+                {renderOptionCards(
+                  BINDING_OPTIONS.paperback, 
+                  bindingType, 
+                  setBindingType,
+                  'bindingType'
+                )}
               </div>
             </div>
 
             <div>
               <h4 className="text-sm font-medium text-gray-700 mb-3">Hardcover Options</h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                {BINDING_OPTIONS.hardcover.map(option => (
-                  <OptionCard
-                    key={option.id}
-                    title={option.title}
-                    imageSrc={option.imageSrc}
-                    isSelected={bindingType === option.id}
-                    onClick={() => setBindingType(option.id)}
-                    subtitle={option.subtitle}
-                  />
-                ))}
+                {renderOptionCards(
+                  BINDING_OPTIONS.hardcover, 
+                  bindingType, 
+                  setBindingType,
+                  'bindingType'
+                )}
               </div>
             </div>
           </OptionSection>
 
           <OptionSection title="Interior Color">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {INTERIOR_COLOR_OPTIONS.map(option => (
-                <OptionCard
-                  key={option.id}
-                  title={option.title}
-                  imageSrc={option.imageSrc}
-                  isSelected={interiorColor === option.id}
-                  onClick={() => setInteriorColor(option.id)}
-                  showSelectedIndicator={true}
-                />
-              ))}
+              {renderOptionCards(
+                INTERIOR_COLOR_OPTIONS, 
+                interiorColor, 
+                setInteriorColor,
+                'interiorColor'
+              )}
             </div>
           </OptionSection>
 
           <OptionSection title="Paper Type">
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-              {PAPER_TYPE_OPTIONS.map(option => (
-                <OptionCard
-                  key={option.id}
-                  title={option.title}
-                  imageSrc={option.imageSrc}
-                  isSelected={paperType === option.id}
-                  onClick={() => setPaperType(option.id)}
-                  showSelectedIndicator={true}
-                />
-              ))}
+              {renderOptionCards(
+                PAPER_TYPE_OPTIONS, 
+                paperType, 
+                setPaperType,
+                'paperType'
+              )}
             </div>
           </OptionSection>
 
           <OptionSection title="Cover Finish">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {COVER_FINISH_OPTIONS.map(option => (
-                <OptionCard
-                  key={option.id}
-                  title={option.title}
-                  imageSrc={option.imageSrc}
-                  isSelected={coverFinish === option.id}
-                  onClick={() => setCoverFinish(option.id)}
-                  showSelectedIndicator={true}
-                />
-              ))}
+              {renderOptionCards(
+                COVER_FINISH_OPTIONS, 
+                coverFinish, 
+                setCoverFinish,
+                'coverFinish'
+              )}
             </div>
           </OptionSection>
 
+          {/* Updated dropdown sections with toggle functionality */}
           <div className="border-t border-gray-200 pt-6">
             <div className="mb-4">
-              <button className="w-full flex items-center justify-between p-4 border border-gray-200 rounded-md">
+              <button 
+                className="w-full flex items-center justify-between p-4 border border-gray-200 rounded-md"
+                onClick={() => setIsQuantityShippingOpen(!isQuantityShippingOpen)}
+              >
                 <span className="font-medium text-lulu-blue">Quantity & Shipping Estimates</span>
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-lulu-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg 
+                  xmlns="http://www.w3.org/2000/svg" 
+                  className={`h-5 w-5 text-lulu-blue transform transition-transform ${isQuantityShippingOpen ? 'rotate-180' : ''}`} 
+                  fill="none" 
+                  viewBox="0 0 24 24" 
+                  stroke="currentColor"
+                >
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
+              {isQuantityShippingOpen && (
+                <QuantityShippingDropdown price={price} />
+              )}
             </div>
             <div>
-              <button className="w-full flex items-center justify-between p-4 border border-gray-200 rounded-md">
+              <button 
+                className="w-full flex items-center justify-between p-4 border border-gray-200 rounded-md"
+                onClick={() => setIsRevenueEstimatesOpen(!isRevenueEstimatesOpen)}
+              >
                 <span className="font-medium text-lulu-blue">Revenue Estimates</span>
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-lulu-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg 
+                  xmlns="http://www.w3.org/2000/svg" 
+                  className={`h-5 w-5 text-lulu-blue transform transition-transform ${isRevenueEstimatesOpen ? 'rotate-180' : ''}`} 
+                  fill="none" 
+                  viewBox="0 0 24 24" 
+                  stroke="currentColor"
+                >
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
+              {isRevenueEstimatesOpen && (
+                <RevenueEstimatesContent price={price} />
+              )}
             </div>
           </div>
         </div>
@@ -545,7 +674,8 @@ const PrintBookOptions: React.FC = () => {
             </div>
 
             <button
-              className="w-full bg-lulu-light-blue text-white font-medium py-3 px-4 rounded-md hover:bg-blue-600 transition-colors"
+              className={`w-full bg-lulu-light-blue text-white font-medium py-3 px-4 rounded-md hover:bg-blue-600 transition-colors ${pageCountError ? 'opacity-50 cursor-not-allowed' : ''}`}
+              disabled={!!pageCountError}
             >
               Create Your Print Book
             </button>
