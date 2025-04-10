@@ -160,7 +160,46 @@ const PRICING_FACTORS: PriceFactors = {
   }
 };
 
-const COMPATIBILITY_RULES = {
+// Define union types for the keys
+type BookSizeId =
+  | 'us-letter'
+  | 'us-trade'
+  | 'pocket'
+  | 'a4'
+  | 'a5'
+  | 'crown-quarto'
+  | 'royal'
+  | 'square'
+  | 'landscape'
+  | 'executive';
+
+type BindingType =
+  | 'perfect-bound'
+  | 'coil-bound'
+  | 'saddle-stitch'
+  | 'case-wrap'
+  | 'linen-wrap';
+
+type InteriorColor =
+  | 'standard-bw'
+  | 'premium-bw'
+  | 'standard-color'
+  | 'premium-color';
+
+type PaperType = '60-cream-uncoated' | '60-white-uncoated' | '80-white-coated';
+
+type CoverFinish = 'glossy' | 'matte';
+
+// Create the type for compatibility rules
+type CompatibilityRules = {
+  bindingTypeBySize: Record<BookSizeId, BindingType[]>;
+  interiorColorByBinding: Record<BindingType, InteriorColor[]>;
+  paperTypeByInteriorColor: Record<InteriorColor, PaperType[]>;
+  coverFinishByBinding: Record<BindingType, CoverFinish[]>;
+};
+
+// Now, when declaring COMPATIBILITY_RULES, annotate it with CompatibilityRules:
+const COMPATIBILITY_RULES: CompatibilityRules = {
   // Define which binding types are compatible with each book size
   bindingTypeBySize: {
     'us-letter': ['perfect-bound', 'coil-bound', 'saddle-stitch', 'case-wrap'],
@@ -260,40 +299,56 @@ const PrintBookOptions: React.FC = () => {
   }
 };
 
-  const isOptionCompatible = useCallback((
-    optionType: 'bindingType' | 'interiorColor' | 'paperType' | 'coverFinish', 
+const isOptionCompatible = useCallback(
+  (
+    optionType: 'bindingType' | 'interiorColor' | 'paperType' | 'coverFinish',
     optionId: string
   ): boolean => {
     switch (optionType) {
       case 'bindingType': {
-        const compatibleBindings = COMPATIBILITY_RULES.bindingTypeBySize[bookSize];
-        return Array.isArray(compatibleBindings) && compatibleBindings.includes(optionId);
+        const compatibleBindings = COMPATIBILITY_RULES.bindingTypeBySize[bookSize as BookSizeId];
+        return (
+          Array.isArray(compatibleBindings) &&
+          compatibleBindings.includes(optionId as BindingType)
+        );
       }
-      
+
       case 'interiorColor': {
-        const compatibleColors = COMPATIBILITY_RULES.interiorColorByBinding[bindingType];
-        return Array.isArray(compatibleColors) && compatibleColors.includes(optionId);
+        const compatibleColors = COMPATIBILITY_RULES.interiorColorByBinding[bindingType as BindingType];
+        return (
+          Array.isArray(compatibleColors) &&
+          compatibleColors.includes(optionId as InteriorColor)
+        );
       }
-      
+
       case 'paperType': {
-        const compatiblePapers = COMPATIBILITY_RULES.paperTypeByInteriorColor[interiorColor];
-        return Array.isArray(compatiblePapers) && compatiblePapers.includes(optionId);
+        const compatiblePapers = COMPATIBILITY_RULES.paperTypeByInteriorColor[interiorColor as InteriorColor];
+        return (
+          Array.isArray(compatiblePapers) &&
+          compatiblePapers.includes(optionId as PaperType)
+        );
       }
-      
+
       case 'coverFinish': {
-        const compatibleFinishes = COMPATIBILITY_RULES.coverFinishByBinding[bindingType];
-        return Array.isArray(compatibleFinishes) && compatibleFinishes.includes(optionId);
+        const compatibleFinishes = COMPATIBILITY_RULES.coverFinishByBinding[bindingType as BindingType];
+        return (
+          Array.isArray(compatibleFinishes) &&
+          compatibleFinishes.includes(optionId as CoverFinish)
+        );
       }
-      
+
       default:
         return false;
     }
-  }, [bookSize, bindingType, interiorColor, paperType]);
+  },
+  [bookSize, bindingType, interiorColor]
+);
+
   
     // Option validation and correction effects
     useEffect(() => {
       if (!isOptionCompatible('bindingType', bindingType)) {
-        const compatibleBindings = COMPATIBILITY_RULES.bindingTypeBySize[bookSize] || [];
+        const compatibleBindings = COMPATIBILITY_RULES.bindingTypeBySize[bookSize as BookSizeId] || [];
         if (compatibleBindings.length > 0) {
           setBindingType(compatibleBindings[0]);
         }
@@ -302,14 +357,14 @@ const PrintBookOptions: React.FC = () => {
   
     useEffect(() => {
       if (!isOptionCompatible('interiorColor', interiorColor)) {
-        const compatibleColors = COMPATIBILITY_RULES.interiorColorByBinding[bindingType] || [];
+        const compatibleColors = COMPATIBILITY_RULES.interiorColorByBinding[bindingType as BindingType] || [];
         if (compatibleColors.length > 0) {
           setInteriorColor(compatibleColors[0]);
         }
       }
       
       if (!isOptionCompatible('coverFinish', coverFinish)) {
-        const compatibleFinishes = COMPATIBILITY_RULES.coverFinishByBinding[bindingType] || [];
+        const compatibleFinishes = COMPATIBILITY_RULES.coverFinishByBinding[bindingType as BindingType] || [];
         if (compatibleFinishes.length > 0) {
           setCoverFinish(compatibleFinishes[0]);
         }
@@ -320,7 +375,7 @@ const PrintBookOptions: React.FC = () => {
   
     useEffect(() => {
       if (!isOptionCompatible('paperType', paperType)) {
-        const compatiblePapers = COMPATIBILITY_RULES.paperTypeByInteriorColor[interiorColor] || [];
+        const compatiblePapers = COMPATIBILITY_RULES.paperTypeByInteriorColor[interiorColor as InteriorColor] || [];
         if (compatiblePapers.length > 0) {
           setPaperType(compatiblePapers[0]);
         }
